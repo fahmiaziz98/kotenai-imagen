@@ -110,46 +110,46 @@ User → GET / (Browser auth dialog) → HTML page load
 - Akun Modal.com (daftar gratis, dapat $30 kredit/bulan)
 - (Opsional) Akun Hugging Face untuk private models
 
-### Step 1: Install Modal CLI
+### Step 1: Install uv & Modal CLI
 ```bash
-pip install modal
-modal setup   # Login dengan browser, ikuti instruksinya
-modal token new  # Generate token
+# Install uv (modern python manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone project
+git clone https://github.com/fahmiaziz98/kotenai-imagen.git
+cd kotenai-imagen
+
+# Setup environment & dependencies
+uv sync
+
+# Login to Modal
+uv run modal setup
 ```
 
-### Step 2: Clone / project setup
+### Step 2: Buat Secrets di Modal
 ```bash
-# Pastikan file main.py, config.py, dan folder frontend/ ada di direktori
-```
-
-### Step 3: Buat Secrets di Modal
-```bash
-# Secret untuk password app (wajib untuk auth)
-modal secret create app-auth \
+# Gunakan 'uv run' untuk menjalankan perintah modal dalam environment proyek
+uv run modal secret create app-auth \
   APP_USERNAME=admin \
   APP_PASSWORD=passwordyangkuat
 
-# Secret untuk HF token (opsional, untuk download model)
-modal secret create huggingface-secret \
+uv run modal secret create huggingface-secret \
   HF_TOKEN=hf_xxxxxxxx
 ```
 
-### Step 4: Pre-download model weights (SANGAT DIREKOMENDASIKAN)
+### Step 3: Pre-download model weights
 ```bash
-# Download weights ke Modal Volume sebelum deploy
-modal run main.py::download_weights
+uv run modal run main.py::download_weights
 ```
 
-### Step 5: Development mode (test dulu)
+### Step 4: Development mode
 ```bash
-modal serve main.py
-# URL otomatis muncul: https://xxxxx.modal.run
+uv run modal serve main.py
 ```
 
-### Step 6: Production deploy
+### Step 5: Production deploy
 ```bash
-modal deploy main.py
-# URL tetap live 24/7, scale-to-zero kalau iddle
+uv run modal deploy main.py
 ```
 
 ### Verifikasi deployment
@@ -257,53 +257,6 @@ Contoh:
 - Lebih hemat biaya (bisa pakai A10G atau L4)
 - Kualitas sedikit di bawah ERNIE tapi sangat cepat
 
----
-
-## 🔮 Cara Extend di Masa Depan
-
-### 1. Tambah LoRA support
-```python
-# Di load_model():
-self.pipe.load_lora_weights("path/to/lora.safetensors")
-
-# Di generate():
-# Gunakan scale untuk kontrol kekuatan LoRA
-self.pipe.set_adapters(["custom_lora"], adapter_weights=[0.8])
-```
-
-### 2. Tambah img2img
-```python
-from diffusers import AutoPipelineForImage2Image
-# Ganti pipeline, tambah parameter 'image' dan 'strength'
-```
-
-### 3. Tambah background removal otomatis
-```python
-# pip install rembg
-from rembg import remove
-clean_img = remove(generated_image)
-```
-
-### 4. Simpan history ke Modal Dict
-```python
-history = modal.Dict.from_name("gen-history", create_if_missing=True)
-history[str(seed)] = {"prompt": prompt, "timestamp": time.time()}
-```
-
-### 5. Webhook notification (Telegram/WhatsApp)
-```python
-# Notify user via Telegram Bot API setelah generate selesai
-import httpx
-httpx.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", ...)
-```
-
-### 6. Batch processing endpoint
-```python
-@app.function(schedule=modal.Period(hours=1))
-def batch_process():
-    # Generate gambar terjadwal untuk content calendar
-    ...
-```
 
 ---
 
