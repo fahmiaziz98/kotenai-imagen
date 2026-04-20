@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>__APP_TITLE__</title>
+  <meta name="description" content="KotenAI — Pembuat gambar AI berbasis ERNIE-Image-Turbo untuk konten sosial media Indonesia.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    /* ── Reset & Variables ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0e0e10;
+      --surface:      rgba(22, 22, 26, 0.85);
+      --surface-alt:  rgba(30, 30, 36, 0.9);
+      --border:       rgba(255, 255, 255, 0.07);
+      --border-focus: rgba(255, 255, 255, 0.18);
+      --text:         #f0eff2;
+      --text-2:       #8a8896;
+      --text-3:       #5a5870;
+      --accent:       #c8f05a;
+      --accent-dark:  #9dbf3a;
+      --accent-glow:  rgba(200, 240, 90, 0.15);
+      --danger:       #ff5a5a;
+      --radius-sm:    10px;
+      --radius-md:    16px;
+      --radius-lg:    24px;
+      --radius-xl:    32px;
+      --font:         'Plus Jakarta Sans', sans-serif;
+      --font-serif:   'Instrument Serif', serif;
+      --shadow:       0 8px 32px rgba(0,0,0,0.5);
+      --shadow-sm:    0 2px 12px rgba(0,0,0,0.3);
+      --transition:   0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      /* Explicit height so overflow-y: auto scrolls correctly */
+      height: 100%;
+      min-height: 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .sidebar-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 28px 24px;
+      min-height: 100%;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-name {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-style: italic;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .brand-name span { color: var(--accent); font-style: normal; }
+    .brand-desc {
+      font-size: 0.78rem;
+      color: var(--text-2);
+      font-weight: 400;
+      letter-spacing: 0.3px;
+    }
+    .model-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(200, 240, 90, 0.2);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 100px;
+      width: fit-content;
+      margin-top: 6px;
+    }
+    .model-badge::before {
+      content: '';
+      width: 5px; height: 5px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ── Form Elements ───────────────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 7px; }
+
+    label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-2);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    textarea, select, input[type="number"] {
+      font-family: var(--font);
+      font-size: 0.9rem;
+      color: var(--text);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color var(--transition), background var(--transition);
+      width: 100%;
+    }
+    textarea:focus, select:focus, input[type="number"]:focus {
+      border-color: var(--border-focus);
+      background: rgba(255,255,255,0.07);
+    }
+
+    textarea {
+      padding: 14px;
+      resize: none;
+      line-height: 1.55;
+      min-height: 130px;
+      color: var(--text);
+    }
+    textarea::placeholder { color: var(--text-3); }
+
+    select {
+      padding: 10px 12px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8896' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+
+    select option { background: #1a1a1f; color: var(--text); }
+
+    input[type="number"] {
+      padding: 9px 12px;
+    }
+
+    /* ── Num Images Buttons ──────────────────────────────────────────── */
+    .num-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .num-btn {
+      flex: 1;
+      padding: 9px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-2);
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all var(--transition);
+      text-align: center;
+    }
+    .num-btn:hover { border-color: var(--border-focus); color: var(--text); }
+    .num-btn.active {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Advanced Accordion ──────────────────────────────────────────── */
+    .accordion {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255,255,255,0.02);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-2);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      transition: background var(--transition);
+    }
+    .accordion-header:hover { background: rgba(255,255,255,0.05); }
+    .accordion-arrow {
+      font-size: 0.7rem;
+      transition: transform var(--transition);
+      color: var(--text-3);
+    }
+    .accordion.open .accordion-arrow { transform: rotate(180deg); }
+    .accordion-body {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      padding: 16px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .accordion.open .accordion-body { display: flex; }
+
+    /* ── Slider ─────────────────────────────────────────────────────── */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    input[type="range"] {
+      flex: 1;
+      height: 3px;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.12);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform var(--transition);
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .slider-val {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* ── Toggle Switch ───────────────────────────────────────────────── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toggle-label { font-size: 0.82rem; color: var(--text-2); }
+    .toggle {
+      position: relative;
+      width: 38px; height: 22px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent); }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 16px; height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: transform var(--transition);
+    }
+    .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+
+    /* ── Examples ────────────────────────────────────────────────────── */
+    .examples-label {
+      font-size: 0.72rem;
+      color: var(--text-3);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: -4px;
+    }
+    .examples-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .example-chip {
+      font-size: 0.76rem;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      color: var(--text-2);
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all var(--transition);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+    .example-chip:hover {
+      border-color: var(--border-focus);
+      color: var(--text);
+    }
+
+    /* ── Generate Button ─────────────────────────────────────────────── */
+    .btn-generate {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      background: var(--accent);
+      color: #0e0e10;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.2px;
+      margin-top: auto;
+    }
+    .btn-generate:hover:not(:disabled) { background: #d9ff6a; transform: translateY(-1px); }
+    .btn-generate:active:not(:disabled) { transform: translateY(0); }
+    .btn-generate:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-generate .btn-spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #0e0e10;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    .btn-generate.loading .btn-icon { display: none; }
+    .btn-generate.loading .btn-spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Workspace ───────────────────────────────────────────────────── */
+    .workspace {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: #0a0a0c;
+      overflow: hidden;
+      /* FIX: prevent grid item from expanding beyond 100vh
+         which breaks inner overflow-y: auto scrolling */
+      min-height: 0;
+      min-width: 0;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(14,14,16,0.8);
+      backdrop-filter: blur(10px);
+      flex-shrink: 0;
+    }
+    .topbar-info {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .topbar-stat i { font-size: 0.7rem; }
+    .topbar-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      width: 34px; height: 34px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      transition: all var(--transition);
+    }
+    .icon-btn:hover { border-color: var(--border-focus); color: var(--text); }
+
+    /* ── Gallery ─────────────────────────────────────────────────────── */
+    .gallery-wrap {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px;
+      /* FIX: allow flex child to shrink so scrolling works */
+      min-height: 0;
+    }
+    .gallery-wrap::-webkit-scrollbar { width: 4px; }
+    .gallery-wrap::-webkit-scrollbar-track { background: transparent; }
+    .gallery-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Empty state vertically centered */
+    .gallery-wrap.is-empty {
+      align-items: center;
+    }
+
+    .gallery {
+      width: 100%;
+      max-width: 900px;
+      display: grid;
+      gap: 12px;
+    }
+    .gallery[data-count="1"] { grid-template-columns: 1fr; max-width: 640px; }
+    .gallery[data-count="2"] { grid-template-columns: 1fr 1fr; }
+    .gallery[data-count="3"] { grid-template-columns: 1fr 1fr 1fr; }
+    .gallery[data-count="4"] { grid-template-columns: 1fr 1fr; }
+
+    .gallery-item {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      aspect-ratio: var(--aspect);
+      cursor: pointer;
+    }
+    .gallery-item img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      transform: scale(1.02);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .gallery-item img.loaded {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .gallery-item-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.7));
+      opacity: 0;
+      transition: opacity var(--transition);
+      display: flex;
+      align-items: flex-end;
+      padding: 12px;
+      gap: 6px;
+    }
+    .gallery-item:hover .gallery-item-overlay { opacity: 1; }
+    .item-dl-btn {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      transition: background var(--transition);
+      text-decoration: none;
+    }
+    .item-dl-btn:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── Empty State ─────────────────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      text-align: center;
+      color: var(--text-3);
+      height: 100%;
+      min-height: 300px;
+    }
+    .empty-icon {
+      font-size: 3rem;
+      opacity: 0.2;
+      margin-bottom: 4px;
+    }
+    .empty-state h3 {
+      font-family: var(--font-serif);
+      font-size: 1.3rem;
+      font-style: italic;
+      color: var(--text-2);
+      font-weight: 400;
+    }
+    .empty-state p { font-size: 0.85rem; max-width: 260px; line-height: 1.5; }
+
+    /* ── Loading Overlay ─────────────────────────────────────────────── */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10,10,12,0.88);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .loading-ring {
+      width: 52px; height: 52px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loading-text {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--text-2);
+    }
+    .loading-sub {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      margin-top: -8px;
+    }
+
+    /* ── Error Toast ─────────────────────────────────────────────────── */
+    .toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: rgba(255,90,90,0.15);
+      border: 1px solid rgba(255,90,90,0.3);
+      color: #ff8a8a;
+      padding: 10px 16px;
+      border-radius: 100px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 100;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Lightbox ────────────────────────────────────────────────────── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .lightbox.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .lightbox img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px; right: 20px;
+      width: 38px; height: 38px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: background var(--transition);
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Responsive Mobile ───────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; }
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+      .sidebar {
+        overflow: visible;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        min-height: unset;
+      }
+      .workspace {
+        min-height: 60vh;
+        /* On mobile the natural growth is fine */
+        min-height: initial;
+      }
+      .topbar { display: none; }
+      .gallery[data-count="3"] { grid-template-columns: 1fr 1fr; }
+      .gallery[data-count="4"] { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-name">Koten<span>AI</span></div>
+        <div class="brand-desc">Pembuat gambar AI untuk konten sosial media</div>
+        <div class="model-badge">ERNIE-Image-Turbo · 8 langkah</div>
+      </div>
+
+      <!-- Prompt -->
+      <div class="field">
+        <label>✦ Prompt</label>
+        <textarea
+          id="prompt"
+          placeholder="Deskripsikan gambar yang ingin kamu buat…"
+          rows="5"
+        ></textarea>
+      </div>
+
+      <!-- Examples -->
+      <div class="field">
+        <div class="examples-label">Contoh cepat</div>
+        <div class="examples-row" id="examples-row"></div>
+      </div>
+
+      <!-- Style Preset -->
+      <div class="field">
+        <label>🎨 Gaya</label>
+        <select id="style-select">
+          __STYLE_OPTIONS__
+        </select>
+      </div>
+
+      <!-- Aspect Ratio -->
+      <div class="field">
+        <label>📐 Rasio &amp; Ukuran</label>
+        <select id="aspect-select">
+          __AR_OPTIONS__
+        </select>
+      </div>
+
+      <!-- Num Images -->
+      <div class="field">
+        <label>🖼️ Jumlah Gambar</label>
+        <div class="num-btns" id="num-btns">
+          <button class="num-btn active" data-n="1">1</button>
+          <button class="num-btn" data-n="2">2</button>
+          <button class="num-btn" data-n="3">3</button>
+          <button class="num-btn" data-n="4">4</button>
+        </div>
+      </div>
+
+      <!-- Advanced Accordion -->
+      <div class="accordion" id="adv-accordion">
+        <div class="accordion-header" id="adv-toggle">
+          <span>⚙️ &nbsp;Pengaturan Lanjutan</span>
+          <i class="fa fa-chevron-down accordion-arrow"></i>
+        </div>
+        <div class="accordion-body">
+
+          <div class="field">
+            <label>Langkah Inferensi</label>
+            <div class="slider-row">
+              <input type="range" id="steps-slider" min="4" max="20" value="8" step="1">
+              <span class="slider-val" id="steps-val">8</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Guidance Scale</label>
+            <div class="slider-row">
+              <input type="range" id="guidance-slider" min="0" max="5" value="1.0" step="0.1">
+              <span class="slider-val" id="guidance-val">1.0</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Seed (kosongkan = random)</label>
+            <input
+              type="number"
+              id="seed-input"
+              placeholder="contoh: 42"
+              min="0"
+              max="4294967295"
+            >
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label" style="font-weight:600; color: var(--text-2); font-size:0.82rem;">Prompt Enhancer (PE)</div>
+              <div class="toggle-label" style="font-size:0.73rem; margin-top:2px;">Perkuat prompt otomatis (lebih lambat)</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="pe-toggle" checked>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Generate Button -->
+      <button class="btn-generate" id="gen-btn">
+        <i class="fa fa-wand-magic-sparkles btn-icon"></i>
+        <div class="btn-spinner"></div>
+        <span class="btn-text">Buat Gambar</span>
+      </button>
+
+    </div>
+  </aside>
+
+  <!-- ═══════════════════ WORKSPACE ═══════════════════ -->
+  <main class="workspace">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="topbar-info">
+        <div class="topbar-stat" id="stat-time">
+          <i class="fa fa-clock"></i>
+          <span>—</span>
+        </div>
+        <div class="topbar-stat" id="stat-seed">
+          <i class="fa fa-fingerprint"></i>
+          <span>—</span>
+        </div>
+        <div class="topbar-stat" id="stat-size">
+          <i class="fa fa-expand"></i>
+          <span>—</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="dl-all-btn" title="Download semua" style="display:none">
+          <i class="fa fa-download"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="gallery-wrap is-empty" id="gallery-wrap">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">✦</div>
+        <h3>Bayangkan apa saja</h3>
+        <p>Masukkan prompt di kiri, pilih gaya dan ukuran, lalu tekan Buat Gambar.</p>
+      </div>
+      <div class="gallery" id="gallery" data-count="1" style="display:none"></div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="loading-ring"></div>
+      <div class="loading-text" id="loading-text">Membuat gambar…</div>
+      <div class="loading-sub" id="loading-sub">Mohon tunggu</div>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="toast" id="toast">
+      <i class="fa fa-circle-exclamation"></i>
+      <span id="toast-text">Terjadi kesalahan.</span>
+    </div>
+
+  </main>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightbox-close"><i class="fa fa-xmark"></i></button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  numImages: 1,
+  generating: false,
+  lastResults: null,
+};
+
+// ── DOM refs ────────────────────────────────────────────────────────────────
+const $  = (id) => document.getElementById(id);
+const el = {
+  prompt:      $('prompt'),
+  style:       $('style-select'),
+  aspect:      $('aspect-select'),
+  numBtns:     document.querySelectorAll('.num-btn'),
+  steps:       $('steps-slider'),
+  stepsVal:    $('steps-val'),
+  guidance:    $('guidance-slider'),
+  guidanceV:   $('guidance-val'),
+  seed:        $('seed-input'),
+  peToggle:    $('pe-toggle'),
+  genBtn:      $('gen-btn'),
+  gallery:     $('gallery'),
+  galleryW:    $('gallery-wrap'),
+  emptyState:  $('empty-state'),
+  loading:     $('loading-overlay'),
+  loadText:    $('loading-text'),
+  loadSub:     $('loading-sub'),
+  toast:       $('toast'),
+  toastText:   $('toast-text'),
+  statTime:    $('stat-time'),
+  statSeed:    $('stat-seed'),
+  statSize:    $('stat-size'),
+  dlAll:       $('dl-all-btn'),
+  accordion:   $('adv-accordion'),
+  advToggle:   $('adv-toggle'),
+  lightbox:    $('lightbox'),
+  lightboxImg: $('lightbox-img'),
+  lightboxClose: $('lightbox-close'),
+  examplesRow: $('examples-row'),
+};
+
+// ── Examples ────────────────────────────────────────────────────────────────
+const EXAMPLES = __EXAMPLES_JS__;
+EXAMPLES.forEach((ex) => {
+  const chip = document.createElement('button');
+  chip.className = 'example-chip';
+  chip.title = ex;
+  chip.textContent = ex.slice(0, 30) + (ex.length > 30 ? '…' : '');
+  chip.addEventListener('click', () => {
+    el.prompt.value = ex;
+    el.prompt.focus();
+  });
+  el.examplesRow.appendChild(chip);
+});
+
+// ── Slider labels ────────────────────────────────────────────────────────────
+el.steps.addEventListener('input', () => {
+  el.stepsVal.textContent = el.steps.value;
+});
+el.guidance.addEventListener('input', () => {
+  el.guidanceV.textContent = parseFloat(el.guidance.value).toFixed(1);
+});
+
+// ── Num images selector ─────────────────────────────────────────────────────
+el.numBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    el.numBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.numImages = parseInt(btn.dataset.n);
+  });
+});
+
+// ── Accordion ────────────────────────────────────────────────────────────────
+el.advToggle.addEventListener('click', () => {
+  const isOpen = el.accordion.classList.toggle('open');
+  if (isOpen) {
+    setTimeout(() => {
+      el.accordion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+  }
+});
+
+// Sidebar smooth behavior
+document.querySelector('.sidebar').style.scrollBehavior = 'smooth';
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  el.toastText.textContent = msg;
+  el.toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.toast.classList.remove('show'), 5000);
+}
+
+// ── Loading state ─────────────────────────────────────────────────────────────
+function setLoading(on, text = 'Membuat gambar…', sub = 'Mohon tunggu') {
+  state.generating = on;
+  el.loading.classList.toggle('active', on);
+  el.genBtn.disabled = on;
+  el.genBtn.classList.toggle('loading', on);
+  el.loadText.textContent = text;
+  el.loadSub.textContent = sub;
+}
+
+// ── Stats bar ─────────────────────────────────────────────────────────────────
+function updateStats(data) {
+  el.statTime.querySelector('span').textContent = `${data.elapsed_seconds}s`;
+  el.statSeed.querySelector('span').textContent = `seed ${data.seed}`;
+  el.statSize.querySelector('span').textContent = data.dimensions || '—';
+}
+
+// ── Gallery rendering ─────────────────────────────────────────────────────────
+function renderGallery(images, aspectStr) {
+  const [w, h] = aspectStr.split(',').map(Number);
+
+  el.emptyState.style.display = 'none';
+  el.galleryW.classList.remove('is-empty');
+  el.gallery.style.display = 'grid';
+  el.gallery.setAttribute('data-count', images.length);
+  el.gallery.innerHTML = '';
+
+  images.forEach((src, i) => {
+    const item = document.createElement('div');
+    item.className = 'gallery-item';
+    item.style.setProperty('--aspect', `${w}/${h}`);
+
+    const img = document.createElement('img');
+    img.alt = `Generated image ${i + 1}`;
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    img.src = src;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'gallery-item-overlay';
+
+    const dlBtn = document.createElement('a');
+    dlBtn.className = 'item-dl-btn';
+    dlBtn.title = 'Download';
+    dlBtn.download = `kontenai-${Date.now()}-${i + 1}.png`;
+    dlBtn.href = src;
+    dlBtn.innerHTML = '<i class="fa fa-download"></i>';
+
+    overlay.appendChild(dlBtn);
+    item.appendChild(img);
+    item.appendChild(overlay);
+
+    // Lightbox on click
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.item-dl-btn')) return;
+      el.lightboxImg.src = src;
+      el.lightbox.classList.add('active');
+    });
+
+    el.gallery.appendChild(item);
+  });
+
+  el.dlAll.style.display = 'flex';
+  state.lastResults = images;
+
+  // Scroll gallery back to top after render
+  el.galleryW.scrollTop = 0;
+}
+
+// ── Download all ──────────────────────────────────────────────────────────────
+el.dlAll.addEventListener('click', () => {
+  if (!state.lastResults) return;
+  state.lastResults.forEach((src, i) => {
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = `kontenai-${Date.now()}-${i + 1}.png`;
+    a.click();
+  });
+});
+
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+el.lightboxClose.addEventListener('click', () => el.lightbox.classList.remove('active'));
+el.lightbox.addEventListener('click', (e) => {
+  if (e.target === el.lightbox) el.lightbox.classList.remove('active');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') el.lightbox.classList.remove('active');
+});
+
+// ── Enter key ─────────────────────────────────────────────────────────────────
+el.prompt.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !state.generating) {
+    e.preventDefault();
+    generate();
+  }
+});
+
+// ── Loading messages sequence ─────────────────────────────────────────────────
+let msgIdx = 0, msgTimer;
+function startLoadingMessages(numSteps) {
+  msgIdx = 0;
+  const msgs = [
+    ['Terhubung ke GPU…',        'Membangunkan container'],
+    ['Memproses prompt…',        'Prompt Enhancer sedang bekerja'],
+    ['Membangkitkan noise…',     `Langkah 1 dari ${numSteps}`],
+    ['Denoising gambar…',        'Difusi sedang berlangsung'],
+    ['Rendering piksel…',        'Hampir selesai!'],
+  ];
+  function step() {
+    if (msgIdx < msgs.length && state.generating) {
+      setLoading(true, msgs[msgIdx][0], msgs[msgIdx][1]);
+      msgIdx++;
+      msgTimer = setTimeout(step, 4500);
+    }
+  }
+  step();
+}
+function stopLoadingMessages() {
+  clearTimeout(msgTimer);
+}
+
+// ── Main generate function ────────────────────────────────────────────────────
+async function generate() {
+  const prompt = el.prompt.value.trim();
+  if (!prompt) {
+    showToast('Masukkan prompt terlebih dahulu!');
+    el.prompt.focus();
+    return;
+  }
+  if (state.generating) return;
+
+  const [w, h] = el.aspect.value.split(',').map(Number);
+  const numSteps = parseInt(el.steps.value);
+
+  setLoading(true, 'Memulai…', 'Menghubungi server');
+  startLoadingMessages(numSteps);
+
+  try {
+    const payload = {
+      prompt:               prompt,
+      width:                w,
+      height:               h,
+      num_images:           state.numImages,
+      num_inference_steps:  numSteps,
+      guidance_scale:       parseFloat(el.guidance.value),
+      seed:                 el.seed.value ? parseInt(el.seed.value) : null,
+      use_pe:               el.peToggle.checked,
+      style_prefix:         el.style.value,
+    };
+
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    renderGallery(data.images, el.aspect.value);
+    updateStats(data);
+
+    // Auto-fill seed field with the seed that was used
+    if (!el.seed.value && data.seed) {
+      el.seed.value = data.seed;
+    }
+
+  } catch (err) {
+    console.error('[Generate] Error:', err);
+    showToast(err.message || 'Terjadi kesalahan, coba lagi.');
+  } finally {
+    stopLoadingMessages();
+    setLoading(false);
+  }
+}
+
+el.genBtn.addEventListener('click', generate);
+</script>
+</body>
+</html>
