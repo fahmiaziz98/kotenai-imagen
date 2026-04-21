@@ -1,272 +1,192 @@
 # KotenAI Image Generator
-**Production-ready image generator untuk konten sosial media**
-Model: `baidu/ERNIE-Image-Turbo` · Deploy: Modal.com · GPU: L40S (48GB)
+
+AI image generation tool untuk pembuatan konten visual sosial media.
+Dibangun di atas Modal.com dengan GPU serverless dan model open-source dari Hugging Face.
 
 ---
 
-## 📂 Project Structure
-```text
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Inference | `baidu/ERNIE-Image-Turbo` atau `Tongyi-MAI/Z-Image-Turbo` via Diffusers |
+| Backend | FastAPI, Modal.com (serverless GPU) |
+| Frontend | Vanilla HTML/CSS/JS (single-file template) |
+| Storage | Modal Volume (HF model cache) |
+| Auth | HTTP Basic Auth |
+| GPU | L40S 48GB (default) |
+
+---
+
+## Project Structure
+
+```
 .
-├── main.py          # Entry point (Modal App & Logic)
-├── config.py        # Konfigurasi, Preset, & Model Settings
-├── frontend/        # Folder Frontend UI
-│   ├── index.html   # Template HTML/CSS/JS
-│   ├── builder.py   # Helper untuk render HTML
-│   └── __init__.py  # Package export
-└── .env             # Environment variables (Local only)
+├── main.py              # Modal App — inference classes & FastAPI web function
+├── config.py            # Model registry, aspect ratios, style presets, examples
+├── frontend/
+│   ├── index.html       # UI template dengan __TOKEN__ placeholders
+│   ├── builder.py       # Render HTML dari config ke string siap serve
+│   └── __init__.py
+└── .env                 # Kredensial lokal (tidak di-commit)
 ```
 
 ---
 
-## 📋 PRD — Product Requirements Document
+## Architecture
 
-### Objective
-Tool AI image generation sederhana, cepat, dan production-ready untuk content creator,
-freelancer, dan UMKM Indonesia yang ingin membuat visual untuk IG, FB, Threads, dan artikel.
+```
+Browser
+  │  GET /          → HTML (rendered dari builder.py)
+  │  POST /api/generate → JSON payload
+  ▼
+web()  [FastAPI, CPU container]
+  │  Verifikasi Basic Auth
+  │  Validasi GenRequest (Pydantic)
+  │  Route model_id → generator class
+  ▼
+ERNIEGenerator / ZImageGenerator  [GPU container: L40S]
+  │  @enter: load pipeline + warmup pass
+  │  @method generate(): inference → base64 PNG list
+  ▼
+modal.Volume  (/root/.cache/huggingface)
+  └─ Model weights cached — tidak re-download setiap cold start
+```
 
-### MVP Features ✅
-| Fitur | Detail |
-|-------|--------|
-| Text-to-Image | Prompt bebas, Bahasa Indonesia & Inggris |
-| Multi-Image | Generate 1–4 gambar sekaligus |
-| Aspect Ratio | 7 preset sesuai platform (IG Post, Story, FB, Artikel, dll.) |
-| Style Preset | 10 gaya siap pakai (Fotorealistik, Sinematik, Anime, dll.) |
-| Prompt Enhancer | Toggle PE bawaan ERNIE untuk kualitas lebih baik |
-| Gallery | Grid view, klik untuk lightbox, download per gambar / semua |
-| Auth | HTTP Basic Auth (username + password) |
+Request flow: `fetch('/api/generate')` → FastAPI → `generator.generate.remote.aio()` → base64 images → render gallery di browser.
 
-### Optional Features ✅ (sudah diimplementasi)
-- Seed control (reproducible results)
-- Advanced: steps (4–20) & guidance scale (0–10)
-- Loading messages sequence (UX feel)
-- Error toast notifications
-- Mobile responsive layout
-
-### Success Metrics
-| Metrik | Target |
-|--------|--------|
-| Waktu generate 1 gambar 1024x1024 | < 15 detik (L40S, 8 steps) |
-| Waktu generate 4 gambar | < 45 detik |
-| Biaya per 100 generate/hari | ~$1.17/hari (~$35/bulan) |
-| Biaya per 500 generate/hari | ~$5.83/hari (~$175/bulan) |
-| Cold start time | < 60 detik (model cached di Volume) |
+Dua generator class terpisah (`ERNIEGenerator`, `ZImageGenerator`) agar masing-masing menjaga container dan weights-nya sendiri di GPU memory secara independen.
 
 ---
 
-## 🏗️ System Architecture
+## Setup
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    MODAL.COM INFRASTRUCTURE                      │
-│                                                                  │
-│  ┌──────────────────────┐    ┌──────────────────────────────┐   │
-│  │  web()               │    │  ImageGenerator              │   │
-│  │  @asgi_app (CPU)     │    │  @cls (GPU: L40S 48GB)       │   │
-│  │                      │    │                              │   │
-│  │  FastAPI             │    │  @enter → load_model()       │   │
-│  │  ├── GET  /          │───▶│    ErnieImagePipeline        │   │
-│  │  ├── POST /api/gen   │    │    + Warmup pass             │   │
-│  │  └── GET  /health    │    │                              │   │
-│  │                      │    │  @method → generate()        │   │
-│  │  HTTP Basic Auth     │    │    → returns base64 images   │   │
-│  │  max_containers=1    │    │                              │   │
-│  │  concurrent=20       │    │                              │   │
-│  └──────────────────────┘    └──────────────────────────────┘   │
-│           │                              │                       │
-│           │     Modal RPC (.remote())    │                       │
-│           └──────────────────────────────┘                       │
-│                                                                  │
-│  ┌─────────────────────────────────────────────┐                 │
-│  │  modal.Volume "kontenai-image-gen-models"   │                 │
-│  │  Mount: /root/.cache/huggingface            │                 │
-│  │  → HF weights cached, tidak download ulang  │                 │
-│  └─────────────────────────────────────────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
-         ▲
-         │ HTTPS
-         │
-┌────────────────┐
-│  Browser User  │
-│  index.html    │◀── File terpisah di frontend/ (builder.py)
-│  fetch() API   │
-└────────────────┘
-```
+**Prerequisites:** Python 3.12+, akun [Modal.com](https://modal.com), `uv`
 
-**Request Flow:**
-```
-User → GET / (Browser auth dialog) → HTML page load
-     → POST /api/generate (JSON payload)
-     → web() → ImageGenerator().generate.remote()
-     → GPU container: ErnieImagePipeline inference
-     → base64 PNG list → render gallery di browser
-```
-
----
-
-## 🚀 Deployment Guide — Step by Step
-
-### Prerequisites
-- Python 3.12+
-- Akun Modal.com (daftar gratis, dapat $30 kredit/bulan)
-- (Opsional) Akun Hugging Face untuk private models
-
-### Step 1: Install uv & Modal CLI
 ```bash
-# Install uv (modern python manager)
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Clone project
+# Clone & setup
 git clone https://github.com/fahmiaziz98/kotenai-imagen.git
 cd kotenai-imagen
-
-# Setup environment & dependencies
 uv sync
 
-# Login to Modal
+# Login Modal
 uv run modal setup
 ```
 
-### Step 2: Buat Secrets di Modal
+**Secrets:**
+
 ```bash
-# Gunakan 'uv run' untuk menjalankan perintah modal dalam environment proyek
 uv run modal secret create app-auth \
   APP_USERNAME=admin \
-  APP_PASSWORD=passwordyangkuat
+  APP_PASSWORD=your_password
 
+# Untuk model private/gated
 uv run modal secret create huggingface-secret \
   HF_TOKEN=hf_xxxxxxxx
 ```
 
-### Step 3: Pre-download model weights
+**Download model weights ke Volume (jalankan sekali):**
+
 ```bash
+# ERNIE-Image-Turbo (default)
 uv run modal run main.py::download_weights
+
+# Z-Image-Turbo (opsional)
+uv run modal run main.py::download_weights --model-id Tongyi-MAI/Z-Image-Turbo
 ```
 
-### Step 4: Development mode
+**Serve & Deploy:**
+
 ```bash
-uv run modal serve main.py
+uv run modal serve main.py    # dev mode, auto-reload
+uv run modal deploy main.py   # production
 ```
 
-### Step 5: Production deploy
-```bash
-uv run modal deploy main.py
-```
-
-### Verifikasi deployment
-```bash
-# Cek status app
-modal app list
-
-# Lihat logs realtime
-modal app logs kontenai-image-gen
-
-# Cek health endpoint
-curl https://your-url.modal.run/health
-```
+URL setelah deploy: `https://<workspace>--kotenai-image-gen-web.modal.run`
 
 ---
 
-## 🔧 Konfigurasi Penting
+## Configuration
 
-Semua pengaturan utama ada di **`config.py`**. Tidak perlu mengedit `main.py` untuk sekadar ganti model atau preset.
+Semua pengaturan ada di `config.py`. `main.py` tidak perlu disentuh untuk ganti model, GPU, atau preset.
 
-### Ganti GPU (di config.py)
+**GPU:**
 ```python
-GPU_TYPE = "L40S"      # 48GB, $1.95/hr — RECOMMENDED
-GPU_TYPE = "A100-40GB" # 40GB, $2.10/hr
+GPU_TYPE = "L40S"       # 48GB — default, cost-effective untuk inference
+GPU_TYPE = "A100-40GB"  # 40GB, fallback jika L40S tidak tersedia
+GPU_TYPE = "A100-80GB"  # 80GB, untuk batch 4 gambar tanpa CPU offload
+GPU_TYPE = "H100"       # Tercepat, paling mahal
 ```
 
-### Ganti Model (di config.py)
+**Model:**
 ```python
-MODEL_ID = "baidu/ERNIE-Image-Turbo"  # Default — 8B, 8 steps
-MODEL_ID = "Tongyi-MAI/Z-Image-Turbo" # Alternatif
+# Di MODELS dict — tambah entry baru untuk model lain
+DEFAULT_MODEL_ID = "baidu/ERNIE-Image-Turbo"
 ```
-> Jika ganti model ke Z-Image-Turbo, ganti juga `ErnieImagePipeline` → `ZImagePipeline`
-> dan sesuaikan `use_pe` parameter (mungkin tidak ada di Z-Image).
 
-### Scale untuk traffic lebih tinggi
+**Scale:**
 ```python
-# Di @app.cls decorator:
-max_containers=3      # Naikkan untuk parallel users
-scaledown_window=300  # Turunkan untuk hemat biaya
+# Di @app.cls decorator di main.py
+max_containers = 3      # Concurrent GPU containers
+scaledown_window = 300  # Detik sebelum container sleep (hemat biaya)
 ```
 
 ---
 
-## 💰 Estimasi Biaya
+## Cost Estimate
 
-### Asumsi: ERNIE-Image-Turbo, L40S, 1024×1024, 8 steps
+Asumsi: ERNIE-Image-Turbo, L40S, 1024x1024, 8 steps, ~15 detik/generate.
 
-| Skenario | Request/hari | Waktu GPU/req | Biaya/hari | Biaya/bulan |
-|----------|-------------|---------------|------------|-------------|
-| Demo ringan | 50 | ~15 detik | ~$0.40 | ~$12 |
-| Penggunaan normal | 200 | ~15 detik | ~$1.56 | ~$47 |
-| Aktif (4 img/req) | 200 | ~45 detik | ~$4.68 | ~$140 |
-| Heavy usage | 500 | ~15 detik | ~$3.90 | ~$117 |
+| Skenario | Request/hari | Biaya/hari | Biaya/bulan |
+|---|---|---|---|
+| Ringan | 50 | ~$0.40 | ~$12 |
+| Normal | 200 | ~$1.56 | ~$47 |
+| Aktif (4 img/req) | 200 | ~$4.68 | ~$140 |
+| Heavy | 500 | ~$3.90 | ~$117 |
 
-> **Scale-to-zero**: Tidak ada request = $0. Modal sangat cost-effective untuk workload bursty.
-
----
-
-## ✍️ Prompt Engineering Tips
-
-### ERNIE-Image-Turbo Best Practices
-
-**Dengan PE enabled (use_pe=True):** Prompt singkat sudah cukup.
-```
-Foto produk kopi, meja kayu, hangat
-```
-PE akan expand menjadi deskripsi detail otomatis.
-
-**Dengan PE disabled (use_pe=False):** Tulis prompt lebih detail.
-```
-Photorealistic product photography of artisan coffee in a ceramic mug,
-rustic wooden table background, warm morning light, shallow depth of field,
-steam rising, 8k quality, professional food photography
-```
-
-**Template untuk konten IG:**
-```
-[SUBJEK], [LATAR], [GAYA LIGHTING], [MOOD/ATMOSPHERE], [KUALITAS]
-
-Contoh:
-"Portrait wanita pengusaha 30an, background gedung Jakarta modern,
- golden hour lighting, confident dan elegan, professional headshot, 8k"
-```
-
-**Template untuk foto produk UMKM:**
-```
-"Product photography [NAMA PRODUK], [LATAR], [PENCAHAYAAN],
- commercial style, clean background, high detail, [WARNA TEMA]"
-```
-
-**Template untuk konten artikel:**
-```
-"[TOPIK ARTIKEL] concept, [GAYA VISUAL], editorial photography style,
- [MOOD], professional quality, [ASPECT]"
-```
-
-**Catatan khusus ERNIE-Image-Turbo:**
-- **Text rendering sangat kuat** — bisa generate gambar dengan tulisan yang terbaca
-- Untuk poster dengan teks: tambahkan teks yang diinginkan langsung di prompt
-- Guidance scale 1.0 (default) optimal untuk 8 steps
-- Resolusi 1024×1024 memberikan kualitas terbaik; resolusi lain juga bagus
-
-### Z-Image-Turbo (Alternatif)
-- Sama-sama 8 steps, sangat ringan (6B, cukup 16GB VRAM)
-- Lebih hemat biaya (bisa pakai A10G atau L4)
-- Kualitas sedikit di bawah ERNIE tapi sangat cepat
-
+Scale-to-zero: tidak ada request = $0.
 
 ---
 
-## 🐛 Troubleshooting
+## Prompt Guide
+
+**ERNIE-Image-Turbo dengan PE enabled** — prompt singkat cukup, model expand sendiri:
+```
+Foto produk kopi, meja kayu, warm lighting
+```
+
+**PE disabled atau Z-Image** — tulis lebih detail:
+```
+Photorealistic product photography, artisan coffee in ceramic mug,
+rustic wooden table, morning light, shallow depth of field, 8k
+```
+
+Template umum:
+```
+[subjek], [latar], [pencahayaan], [mood], [kualitas/style]
+```
+
+Catatan model: ERNIE text rendering sangat kuat, cocok untuk poster dan grafis dengan tulisan. Z-Image lebih ringan (6B vs 8B), cocok untuk volume tinggi dengan budget terbatas. Guidance scale 1.0 + 8 steps adalah sweet spot untuk kedua model.
+
+---
+
+## Troubleshooting
 
 | Error | Solusi |
-|-------|--------|
-| `ModuleNotFoundError: ErnieImagePipeline` | diffusers belum update ke main branch, tunggu atau pin ke git |
-| `CUDA out of memory` | Code sudah handle fallback sequential, tapi jika tetap error → naikkan GPU ke A100-80GB |
-| `401 Unauthorized` | Cek APP_USERNAME/APP_PASSWORD di Modal secret |
-| `Container cold start lambat` | Jalankan `download_weights` terlebih dahulu |
-| `torch.compile error` | Diabaikan otomatis (non-fatal), inferensi tetap berjalan |
-| `PE (Prompt Enhancer) lambat` | Matikan PE di UI atau `use_pe=False` default |
+|---|---|
+| `ModuleNotFoundError: ErnieImagePipeline` | `pip install git+https://github.com/huggingface/diffusers.git` |
+| `CUDA out of memory` | Kode sudah handle fallback sequential. Jika tetap OOM, naikkan GPU ke A100-80GB |
+| `401 Unauthorized` | Cek value `APP_USERNAME` / `APP_PASSWORD` di Modal secret `app-auth` |
+| Cold start sangat lambat | Pastikan `download_weights` sudah dijalankan sebelum deploy |
+| Z-Image tidak support `use_pe` | Normal — PE hanya ada di ERNIE pipeline, UI otomatis menyembunyikan toggle |
+
+---
+
+## Roadmap
+
+- Image-to-image (img2img dengan strength control)
+- Image-to-video
+- Text-to-video
